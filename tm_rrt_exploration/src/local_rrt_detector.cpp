@@ -66,19 +66,20 @@ int main(int argc, char **argv) {
     MTRand drand; // double in [0, 1) generator, already init
 
 // generate the same numbers as in the original C test program
-    ros::init(argc, argv, "local_rrt_frontier_detector");
+    ros::init(argc, argv, "local_rrt_detector");
     ros::NodeHandle nh;
 
     // fetching all parameters
     float eta, init_map_x, init_map_y, range;
-    std::string map_topic, base_frame_topic;
+    std::string map_topic, base_frame_topic, map_frame;
 
     std::string ns;
     ns = ros::this_node::getName();
 
     ros::param::param<float>(ns + "/eta", eta, 0.5);
     ros::param::param<std::string>(ns + "/map_topic", map_topic, "/robot_1/map");
-    ros::param::param<std::string>(ns + "/robot_frame", base_frame_topic, "/robot_1/base_link");
+    ros::param::param<std::string>(ns + "/map_frame", map_frame, "map");
+    ros::param::param<std::string>(ns + "/robot_frame", base_frame_topic, "/robot_1/base_footprint");
     //---------------------------------------------------------------
     ros::Subscriber sub = nh.subscribe(map_topic, 100, mapCallBack);
     ros::Subscriber rviz_sub = nh.subscribe("/clicked_point", 100, rvizCallBack);
@@ -221,7 +222,7 @@ int main(int argc, char **argv) {
                             while (temp == 0) {
                                 try {
                                     temp = 1;
-                                    listener.lookupTransform(map_topic, base_frame_topic, ros::Time(0), transform);
+                                    listener.lookupTransform(map_frame, base_frame_topic, ros::Time(0), transform);
                                 }
                                 catch (tf::TransformException ex) {
                                     temp = 0;

@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
                     points.color.r = 255.0 / 255.0;
                     points.color.g = 0.0 / 255.0;
                     points.color.b = 0.0 / 255.0;
-                    points.color.a = 0.3;
+                    points.color.a = 0.5;
                     line.color.a = 0.2;
                     points.lifetime = ros::Duration();
                     line.lifetime = ros::Duration();

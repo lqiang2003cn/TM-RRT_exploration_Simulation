@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 
+import time
+from copy import copy
+
 # --------Include modules---------------
 import rospy
 import tf
-import time
-from copy import copy
-from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
-from nav_msgs.msg import OccupancyGrid
-from std_msgs.msg import Bool
 from geometry_msgs.msg import PointStamped
+from nav_msgs.msg import OccupancyGrid
 from numpy import array, vstack, delete, round
-from functions import gridValue, informationGain, gridValueMergedMap, calculateLocationDistance
 from sklearn.cluster import MeanShift
+from std_msgs.msg import Bool
 from tmrrt_exploration.msg import PointArray, invalidArray
+from visualization_msgs.msg import Marker
 
+from functions import gridValue, informationGain, gridValueMergedMap, calculateLocationDistance
 
 # Subscribers' callbacks------------------------------
 mapData = OccupancyGrid()
-frontiers  = []
+frontiers = []
 globalmaps = []
-localmaps  = []
+localmaps = []
 invalidFrontier = []
 startStopSignal = False
-resetSignal     = False
+resetSignal = False
 
 
 def callBack(data, args):
@@ -37,25 +38,29 @@ def callBack(data, args):
     else:
         frontiers = x
 
+
 def mapCallBack(data):
     global mapData
     mapData = data
 
+
 def invalidCallBack(data):
-	global invalidFrontier
-	invalidFrontier=[]
-	for point in data.points:
-		invalidFrontier.append(array([point.x,point.y]))
+    global invalidFrontier
+    invalidFrontier = []
+    for point in data.points:
+        invalidFrontier.append(array([point.x, point.y]))
+
 
 def localMapCallBack(data):
     global localmaps, robot_namelist
     # search the topic based on the robot name arrangement suplied by the user
     topic_breakdownlist = str(data._connection_header['topic']).split('/')
-    
+
     for ib in range(0, len(robot_namelist)):
         if robot_namelist[ib] in topic_breakdownlist:
             indx = ib
     localmaps[indx] = data
+
 
 def globalCostMapCallBack(data):
     global globalmaps, robot_namelist
@@ -66,14 +71,17 @@ def globalCostMapCallBack(data):
             indx = ia
     globalmaps[indx] = data
 
+
 def startSignalCallBack(data):
     global startStopSignal
-    startStopSignal=data.data
+    startStopSignal = data.data
 
 
 def resetSignalCallBack(data):
     global resetSignal
-    resetSignal=data.data
+    resetSignal = data.data
+
+
 # Node----------------------------------------------
 
 
@@ -82,25 +90,27 @@ def node():
     rospy.init_node('filter', anonymous=False)
 
     # fetching all parameters
-    map_topic          = rospy.get_param('~map_topic', '/map')
-    threshold          = rospy.get_param('~costmap_clearing_threshold', 70)
+    map_topic = rospy.get_param('~map_topic', '/map')
+    threshold = rospy.get_param('~costmap_clearing_threshold', 70)
     # this can be smaller than the laser scanner range, >> smaller >>less computation time>> too small is not good, info gain won't be accurate
-    info_radius        = rospy.get_param('~info_radius', 1.0)
-    goals_topic        = rospy.get_param('~goals_topic', '/detected_points')
-    robot_namelist     = rospy.get_param('~robot_namelist', 'robot1')
-    rateHz             = rospy.get_param('~rate', 100)
+    info_radius = rospy.get_param('~info_radius', 1.0)
+    goals_topic = rospy.get_param('~goals_topic', '/detected_points')
+    robot_namelist = rospy.get_param('~robot_namelist', 'robot1')
+    rateHz = rospy.get_param('~rate', 100)
     global_costmap_topic = rospy.get_param('~global_costmap_topic', '/move_base_node/global_costmap/costmap')
-    local_map_topic    = rospy.get_param('~local_map', '/map')
-    bandwith_cluster   = rospy.get_param('~bandwith_cluster', 0.3)
-    robot_frame        = rospy.get_param('~robot_frame', 'base_link')
-    inv_frontier_topic = rospy.get_param('~invalid_frontier','/invalid_points')	
-    localMapSub        = rospy.get_param('~localMapSub',False)	
-    computeCycle       = rospy.get_param('~computeCycle',0.0)	
-    startSignalTopic   = rospy.get_param('~startSignalTopic', '/explore_start') # the start and stop of the signal depends on the user configuration.
-    resetSignalTopic   = rospy.get_param('~resetSignalTopic', '/explore_reset') # reset signal for controlling the start and end of the robot
-    debug1             = rospy.get_param('~debug1',False)	
-    debug2             = rospy.get_param('~debug2',False)	
-# -------------------------------------------
+    local_map_topic = rospy.get_param('~local_map', '/map')
+    bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
+    robot_frame = rospy.get_param('~robot_frame', 'base_link')
+    inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_points')
+    localMapSub = rospy.get_param('~localMapSub', False)
+    computeCycle = rospy.get_param('~computeCycle', 0.0)
+    startSignalTopic = rospy.get_param('~startSignalTopic',
+                                       '/explore_start')  # the start and stop of the signal depends on the user configuration.
+    resetSignalTopic = rospy.get_param('~resetSignalTopic',
+                                       '/explore_reset')  # reset signal for controlling the start and end of the robot
+    debug1 = rospy.get_param('~debug1', False)
+    debug2 = rospy.get_param('~debug2', False)
+    # -------------------------------------------
     robot_namelist = robot_namelist.split(',')
     rate = rospy.Rate(rateHz)
 
@@ -109,12 +119,10 @@ def node():
     rospy.Subscriber(startSignalTopic, Bool, startSignalCallBack)
     rospy.Subscriber(resetSignalTopic, Bool, resetSignalCallBack)
 
-
-#---------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
     for i in range(0, len(robot_namelist)):
         globalmaps.append(OccupancyGrid())
         localmaps.append(OccupancyGrid())
-
 
     for i in range(0, len(robot_namelist)):
         rospy.loginfo('waiting for  ' + robot_namelist[i])
@@ -123,12 +131,12 @@ def node():
         if localMapSub:
             rospy.Subscriber(robot_namelist[i] + local_map_topic, OccupancyGrid, localMapCallBack)
 
-# wait if map is not received yet
+    # wait if map is not received yet
     while (len(mapData.data) < 1):
         rospy.loginfo('Waiting for the map')
         rospy.sleep(0.1)
         pass
-# wait if any of robots' global costmap map is not received yet
+    # wait if any of robots' global costmap map is not received yet
     for i in range(0, len(robot_namelist)):
         while (len(globalmaps[i].data) < 1):
             rospy.loginfo('Waiting for the global costmap')
@@ -140,37 +148,38 @@ def node():
                 rospy.sleep(0.1)
                 pass
 
-    global_frame = "/"+mapData.header.frame_id
-    
-#---------------------------------------------------------------------------------------------------------------
+    global_frame = "/" + mapData.header.frame_id
+
+    # ---------------------------------------------------------------------------------------------------------------
     try:
         tfLisn = tf.TransformListener()
     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
         rospy.sleep(0.1)
         pass
-#---------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
     rospy.loginfo('Waiting for TF Transformer')
     for i in range(0, len(robot_namelist)):
-        rospy.loginfo('Transforming - ' + robot_namelist[i] +'/'+robot_frame + ' in ' + global_frame[1:])
-        tfLisn.waitForTransform(global_frame[1:], robot_namelist[i] +'/'+robot_frame, rospy.Time(0), rospy.Duration(10.0))
+        rospy.loginfo('Transforming - ' + robot_namelist[i] + '/' + robot_frame + ' in ' + global_frame[1:])
+        tfLisn.waitForTransform(global_frame[1:], robot_namelist[i] + '/' + robot_frame, rospy.Time(0),
+                                rospy.Duration(10.0))
 
-#---------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
     rospy.Subscriber(goals_topic, PointStamped, callback=callBack, callback_args=[tfLisn, global_frame[1:]])
-#---------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
     pub = rospy.Publisher('frontiers', Marker, queue_size=10)
     pub2 = rospy.Publisher('centroids', Marker, queue_size=10)
     filterpub = rospy.Publisher('filtered_points', PointArray, queue_size=10)
 
     rospy.loginfo("the map and global costmaps are received")
 
-#---------------------------------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------------------------------
     # wait if no frontier is received yet
     while len(frontiers) < 1:
         pass
 
     points = Marker()
     points_clust = Marker()
-# Set the frame ID and timestamp.  See the TF tutorials for information on these.
+    # Set the frame ID and timestamp.  See the TF tutorials for information on these.
     points.header.frame_id = mapData.header.frame_id
     points.header.stamp = rospy.Time.now()
 
@@ -179,7 +188,7 @@ def node():
 
     points.type = Marker.POINTS
 
-# Set the marker action for latched frontiers.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+    # Set the marker action for latched frontiers.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
     points.action = Marker.ADD
 
     points.pose.orientation.w = 1.0
@@ -187,9 +196,9 @@ def node():
     points.scale.x = 0.2
     points.scale.y = 0.2
 
-    points.color.r = 255.0/255.0
-    points.color.g = 255.0/255.0
-    points.color.b = 0.0/255.0
+    points.color.r = 255.0 / 255.0
+    points.color.g = 255.0 / 255.0
+    points.color.b = 0.0 / 255.0
 
     points.color.a = 0.5
     points.lifetime = rospy.Duration()
@@ -209,16 +218,16 @@ def node():
 
     points_clust.type = Marker.POINTS
 
-# Set the marker action for centroids.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
+    # Set the marker action for centroids.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
     points_clust.action = Marker.ADD
 
     points_clust.pose.orientation.w = 1.0
 
     points_clust.scale.x = 0.4
     points_clust.scale.y = 0.4
-    points_clust.color.r = 0.0/255.0
-    points_clust.color.g = 255.0/255.0
-    points_clust.color.b = 0.0/255.0
+    points_clust.color.r = 0.0 / 255.0
+    points_clust.color.g = 255.0 / 255.0
+    points_clust.color.b = 0.0 / 255.0
 
     points_clust.color.a = 1
     points_clust.lifetime = rospy.Duration()
@@ -231,16 +240,16 @@ def node():
     arraypoints = PointArray()
     tempPoint = Point()
     tempPoint.z = 0.0
-# -------------------------------------------------------------------------
-# ---------------------     Main   Loop     -------------------------------
-# -------------------------------------------------------------------------
-    nextComputeTime = time.time() 
+    # -------------------------------------------------------------------------
+    # ---------------------     Main   Loop     -------------------------------
+    # -------------------------------------------------------------------------
+    nextComputeTime = time.time()
 
     while not rospy.is_shutdown():
         if resetSignal:
             print(">> FILTER NODE ------------ RESET SIGNAL RECEIVED ------------")
             # mapData         = OccupancyGrid()
-            frontiers       = []
+            frontiers = []
             # globalmaps      = []
             # localmaps       = []
             invalidFrontier = []
@@ -248,7 +257,7 @@ def node():
         if startStopSignal:
             if (time.time() + computeCycle) >= nextComputeTime:
                 if debug2:
-                    print("now working on new cycle of the filtering process at time: %.3f" %(time.time()))
+                    print("now working on new cycle of the filtering process at time: %.3f" % (time.time()))
                 # -------------------------------------------------------------------------
                 # Clustering frontier points
                 centroids = []
@@ -266,12 +275,12 @@ def node():
                     centroids = front
 
                 if debug2:
-                    print(">> The compute time for clustering took around %.4fs" %(time.time() - startTime))
+                    print(">> The compute time for clustering took around %.4fs" % (time.time() - startTime))
 
                 frontiers = copy(centroids)
-        # -------------------------------------------------------------------------
-        # clearing old frontiers
-                
+                # -------------------------------------------------------------------------
+                # clearing old frontiers
+
                 if debug1 or debug2:
                     startTime = time.time()
                 z = 0
@@ -294,42 +303,45 @@ def node():
                                 if calculateLocationDistance(centroids[z], invalidFrontier[jj]) < 0.1:
                                     cond2 = True
                             except:
-                                print(" @@@@@@@@@@@@@@ point -> %d got problem with the following point: [%f %f]" %(jj, temppoint.point.x, temppoint.point.y))
-                                
+                                print(" @@@@@@@@@@@@@@ point -> %d got problem with the following point: [%f %f]" % (
+                                jj, temppoint.point.x, temppoint.point.y))
+
                         if localMapSub:
                             localMapValue = gridValueMergedMap(localmaps[i], transformed_pts)
                             if localMapValue > 90:
                                 cond4 = True
                         # debugging tools
                         if debug2:
-                            print(">> The local map grid map for robot %s calculation used time: %.3fs" %(robot_namelist[i], time.time()-startTime2))
-
+                            print(">> The local map grid map for robot %s calculation used time: %.3fs" % (
+                            robot_namelist[i], time.time() - startTime2))
 
                     startTime2 = time.time()
                     # now working with the cond3
                     mapValue = gridValueMergedMap(mapData, centroids[z])
-                    if mapValue > 90: # if the map value is unknown or obstacle
+                    if mapValue > 90:  # if the map value is unknown or obstacle
                         cond3 = True
-                    infoGain = informationGain(mapData, centroids[z], info_radius*0.5)
+                    infoGain = informationGain(mapData, centroids[z], info_radius * 0.5)
                     if debug1:
-                        print("info gain and merged map value calculation took around %.3fs" %(time.time()-startTime2))
+                        print("info gain and merged map value calculation took around %.3fs" % (
+                                    time.time() - startTime2))
 
                     # if (cond1 or cond2 or (cond3 and cond4) or infoGain < 0.2):
                     if localMapSub:
                         if (cond1 or cond2 or cond3 or cond4 or infoGain < 0.2):
                             # print('point: [%f, %f] Condition: %s %s %s %s %s - %f' %(centroids[z][0], centroids[z][1], str(cond1),str(cond2),str(cond3),str(cond4),str(infoGain < 0.2),infoGain))
                             centroids = delete(centroids, (z), axis=0)
-                            z = z-1 
+                            z = z - 1
                     else:
                         if (cond1 or cond3 or infoGain < 0.2):
                             # print('point: [%f, %f] Condition: %s %s %s %s %s - %f' %(centroids[z][0], centroids[z][1], str(cond1),str(cond2),str(cond3),str(cond4),str(infoGain < 0.2),infoGain))
                             centroids = delete(centroids, (z), axis=0)
-                            z = z-1 
+                            z = z - 1
                     z += 1
                 if debug1 or debug2:
-                    print(">> The time to compute centroids and info gain took around %.4fs" %(time.time() - startTime))
-        # -------------------------------------------------------------------------
-        # publishing
+                    print(">> The time to compute centroids and info gain took around %.4fs" % (
+                                time.time() - startTime))
+                # -------------------------------------------------------------------------
+                # publishing
                 arraypoints.points = []
                 for i in range(0, len(centroids)):
                     invalidPts = False
@@ -337,8 +349,8 @@ def node():
                         if invalidFrontier[j][0] == centroids[i][0] and invalidFrontier[j][1] == centroids[i][1]:
                             invalidPts = True
                     if not invalidPts:
-                        tempPoint.x = round(centroids[i][0],2)
-                        tempPoint.y = round(centroids[i][1],2)
+                        tempPoint.x = round(centroids[i][0], 2)
+                        tempPoint.y = round(centroids[i][1], 2)
                         arraypoints.points.append(copy(tempPoint))
                 filterpub.publish(arraypoints)
                 pp = []
@@ -360,11 +372,13 @@ def node():
                 # update the compute cycle
                 nextComputeTime = time.time() + computeCycle
                 if debug2:
-                    print("next debug cycle time is: %.2f" %(nextComputeTime))
+                    print("next debug cycle time is: %.2f" % (nextComputeTime))
         else:
             rospy.loginfo('-----------------+++ Filter Module: Terminated Signal Received +++----------------- ')
             rospy.sleep(1.0)
         rate.sleep()
+
+
 # -------------------------------------------------------------------------
 
 
