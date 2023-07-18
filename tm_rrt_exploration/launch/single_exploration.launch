@@ -36,7 +36,7 @@
     <arg name="global_frame" value="map"/>
     <arg name="global_costmap_topic" value="/move_base_node/global_costmap/costmap"/>
     <arg name="plan_service" value="/move_base_node/NavfnROS/make_plan"/>
-    <arg name="robot_base_link" value="base_link"/>
+    <arg name="robot_base_link" value="base_footprint"/>
     <arg name="move_base_service" value="/move_base"/>
 
     <!-- for starting the simulation in the initial poitn of the data -->
