@@ -8,9 +8,9 @@ from numpy.linalg import norm
 import lq_utils as utils
 
 
-class GlobalDetector:
+class Detector:
 
-    def __init__(self, node_name):
+    def __init__(self, node_name, mode):
         self.start_x = None
         self.start_y = None
         self.init_map_x = None
@@ -23,11 +23,6 @@ class GlobalDetector:
         self.points = Marker()
         self.first_run = True
         self.V = []
-        self.frontiers = []
-        self.x_rand = []
-        self.x_nearest = []
-        self.x_new = []
-        self.random_gen = np.random.uniform(0, 1)
         self.eta = 1
         self.map_topic = '/map'
         self.rate_hz = 100
@@ -35,6 +30,7 @@ class GlobalDetector:
         self.shapes_pub = None
         self.node_name = node_name
         self.rate = None
+        self.mode = mode
 
     def init_visual_info(self):
         self.points.header.frame_id = self.occupy_map_data.header.frame_id
@@ -93,7 +89,7 @@ class GlobalDetector:
         xr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_x + self.start_x
         yr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_y + self.start_y
         x_rand = np.array([xr, yr])
-        x_nearest = utils.nearest(self.V, self.x_rand)
+        x_nearest = utils.nearest(self.V, x_rand)
         x_new = utils.steer(x_nearest, x_rand, self.eta)
         obstacle_free, stopped_point = utils.obstacle_free(x_nearest, x_new, self.occupy_map_data)
         if obstacle_free == -1:
@@ -153,8 +149,8 @@ class GlobalDetector:
         rospy.Subscriber("/explore_start", Bool, self.start_signal_callback, queue_size=100)
         rospy.Subscriber("/explore_reset", Bool, self.reset_signal_callBack, queue_size=100)
 
-        self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=100)
-        self.shapes_pub = rospy.Publisher(self.node_name + '/_shapes', Marker, queue_size=100)
+        self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=10)
+        self.shapes_pub = rospy.Publisher(self.node_name + '/_shapes', Marker, queue_size=10)
 
         self.rate = rospy.Rate(self.rate_hz)
 
@@ -190,8 +186,12 @@ if __name__ == '__main__':
     try:
         nn = 'global_rrt_detector'
         rospy.init_node(nn, anonymous=False)
-        gd = GlobalDetector(nn)
+        gd = Detector(nn, 'global')
         gd.init()
         gd.loop()
+
+        # ld = Detector(nn, 'local')
+        # ld.init()
+        # ld.loop()
     except rospy.ROSInterruptException:
         pass
