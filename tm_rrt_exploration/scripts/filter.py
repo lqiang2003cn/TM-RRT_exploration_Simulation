@@ -102,7 +102,7 @@ def node():
     bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
     robot_frame = rospy.get_param('~robot_frame', 'base_link')
     inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_points')
-    localMapSub = rospy.get_param('~localMapSub', False)
+    localMapSub = rospy.get_param('~localMapSub', True)
     computeCycle = rospy.get_param('~computeCycle', 0.0)
     startSignalTopic = rospy.get_param('~startSignalTopic',
                                        '/explore_start')  # the start and stop of the signal depends on the user configuration.
