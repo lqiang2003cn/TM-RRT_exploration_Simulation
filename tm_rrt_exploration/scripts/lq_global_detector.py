@@ -1,10 +1,11 @@
 import numpy as np
 import rospy
 from geometry_msgs.msg import PointStamped, Point
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, Odometry
+from numpy.linalg import norm
 from std_msgs.msg import Bool
 from visualization_msgs.msg import Marker
-from numpy.linalg import norm
+
 import lq_utils as utils
 
 
@@ -15,7 +16,7 @@ class Detector:
         self.start_y = None
         self.init_map_x = None
         self.init_map_y = None
-        self.start_signal = False
+        self.start_signal = True
         self.reset_signal = False
         self.occupy_map_data = OccupancyGrid()
         self.boundary_points = Marker()
@@ -31,6 +32,155 @@ class Detector:
         self.node_name = node_name
         self.rate = None
         self.mode = mode
+        self.odom_points = None
+        self.odom_topic = None
+
+    def init(self):
+        robot_name = '/tb3_0'
+        self.eta = rospy.get_param('~eta', 0.5)
+        self.map_topic = rospy.get_param('~map_topic', "/map")
+        self.rate_hz = rospy.get_param('~rate', 100)
+        self.odom_topic = rospy.get_param('~odom_topic', robot_name + '/odom')
+
+        rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_callback, queue_size=100)
+        rospy.Subscriber("/explore_start", Bool, self.start_signal_callback, queue_size=10)
+        rospy.Subscriber("/explore_reset", Bool, self.reset_signal_callBack, queue_size=10)
+        rospy.Subscriber(self.odom_topic, Odometry, self.odom_callback)
+
+        self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=100)
+        self.shapes_pub = rospy.Publisher(self.node_name + '/_shapes', Marker, queue_size=100)
+
+        self.rate = rospy.Rate(self.rate_hz)
+
+        while len(self.occupy_map_data.data) < 1:
+            rospy.loginfo('Waiting for the map')
+            self.rate.sleep()
+            pass
+
+        while self.odom_points is None:
+            rospy.loginfo('Waiting for odom')
+            self.rate.sleep()
+            pass
+
+        rospy.loginfo('map received')
+        rospy.loginfo('odom received')
+
+    def loop(self):
+        while not rospy.is_shutdown():
+            if self.reset_signal:
+                self.reset()
+            else:
+                if self.start_signal:
+                    if self.first_run:
+                        self.handle_first_run()
+
+                    if not self.first_run:
+                        self.detect()
+                else:
+                    self.rate.sleep()
+
+    def handle_first_run(self):
+        self.init_visual_info()
+        self.setup_boundary_points()
+        self.cal_init_info()
+        self.first_run = False
+
+    def cal_init_info(self):
+        temp1 = np.array([self.boundary_points.points[0][0], self.boundary_points.points[0][1]])
+        temp2 = np.array([self.boundary_points.points[2][0], self.boundary_points.points[0][1]])
+        self.init_map_x = norm(temp1 - temp2)
+
+        temp1 = np.array([self.boundary_points.points[0][0], self.boundary_points.points[0][1]])
+        temp2 = np.array([self.boundary_points.points[0][0], self.boundary_points.points[2][1]])
+        self.init_map_y = norm(temp1 - temp2)
+
+        self.start_x = (self.boundary_points.points[0][0] + self.boundary_points.points[2][0]) * 0.5
+        self.start_y = (self.boundary_points.points[0][1] + self.boundary_points.points[2][1]) * 0.5
+
+        self.V.append(np.array([self.odom_points[0], self.odom_points[1]]))
+
+    def reset(self):
+        self.boundary_points.points = []
+        self.points.points = []
+        self.line.points = []
+        self.V = []
+        self.first_run = True
+        self.rate.sleep()
+
+    def detect(self):
+        while self.start_signal:
+            xr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_x + self.start_x
+            yr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_y + self.start_y
+            x_rand = np.array([xr[0], yr[0]])
+            x_nearest = utils.nearest(self.V, x_rand)
+            x_new = utils.steer(x_nearest, x_rand, self.eta)
+            obstacle_free, stopped_point = utils.obstacle_free(x_nearest, x_new, self.occupy_map_data)
+            if obstacle_free == -1:
+                p = Point()
+                p.x = stopped_point[0]
+                p.y = stopped_point[1]
+                p.z = 0.0
+                self.points.points.append(p)
+                self.shapes_pub.publish(p)
+
+                goal = PointStamped()
+                goal.header.stamp = rospy.Time.now()
+                goal.header.frame_id = self.occupy_map_data.header.frame_id
+                goal.point.x = stopped_point[0]
+                goal.point.y = stopped_point[1]
+                goal.point.z = 0.0
+                self.detected_points_pub.publish(goal)
+                self.points.points = []
+            elif obstacle_free == 1:
+                self.V.append(stopped_point)
+                p = Point()
+                p.x = stopped_point[0]
+                p.y = stopped_point[1]
+                p.z = 0.0
+                self.line.points.append(p)
+
+                p = Point()
+                p.x = x_nearest[0]
+                p.y = x_nearest[1]
+                p.z = 0.0
+                self.line.points.append(p)
+            self.shapes_pub.publish(self.line)
+            self.rate.sleep()
+
+    def map_callback(self, data):
+        self.occupy_map_data = data
+
+    def boundary_points_callback(self, data):
+        temp_point = Point()
+        temp_point.x = data.point.x
+        temp_point.y = data.point.y
+        temp_point.z = data.point.z
+        self.boundary_points.points.append(temp_point)
+
+    def start_signal_callback(self, data):
+        self.start_signal = data.data
+
+    def reset_signal_callBack(self, data):
+        self.reset_signal = data.data
+
+    def setup_boundary_points(self):
+        map_resolution = self.occupy_map_data.info.resolution
+        map_width = self.occupy_map_data.info.height
+        map_height = self.occupy_map_data.info.width
+        pos_origin_x = self.occupy_map_data.info.origin.position.x
+        pos_origin_y = self.occupy_map_data.info.origin.position.y
+
+        self.boundary_points.points.append(np.array([((map_width * map_resolution) * -1.0) - pos_origin_x + 0.01,
+                                                     ((map_height * map_resolution) * 1.0) + pos_origin_y - 0.01]))
+        self.boundary_points.points.append(np.array([((map_width * map_resolution) * -1.0) - pos_origin_x + 0.01,
+                                                     ((map_height * map_resolution) * -1.0) - pos_origin_y + 0.01]))
+        self.boundary_points.points.append(np.array([((map_width * map_resolution) * 1.0) + pos_origin_x - 0.01,
+                                                     ((map_height * map_resolution) * -1.0) - pos_origin_y + 0.01]))
+        self.boundary_points.points.append(np.array([((map_width * map_resolution) * 1.0) + pos_origin_x - 0.01,
+                                                     ((map_height * map_resolution) * 1.0) + pos_origin_y - 0.01]))
+
+    def odom_callback(self, data):
+        self.odom_points = [data.pose.pose.position.x, data.pose.pose.position.y]
 
     def init_visual_info(self):
         self.points.header.frame_id = self.occupy_map_data.header.frame_id
@@ -63,124 +213,6 @@ class Detector:
         self.line.color.a = 0.2
         self.line.lifetime = rospy.Duration()
 
-    def cal_init_info(self):
-        temp1 = np.array([self.points.points[0].x, self.points.points[0].y])
-        temp2 = np.array([self.points.points[2].x, self.points.points[0].y])
-        self.init_map_x = norm(temp1 - temp2)
-
-        temp1 = np.array([self.points.points[0].x, self.points.points[0].y])
-        temp2 = np.array([self.points.points[0].x, self.points.points[2].y])
-        self.init_map_y = norm(temp1 - temp2)
-
-        self.start_x = (self.points.points[0].x + self.points.points[2].x) * 0.5
-        self.start_y = (self.points.points[0].y + self.points.points[2].y) * 0.5
-
-        trans = self.points.points[4]
-        self.V.append(np.array([trans.x, trans.y]))
-
-    def reset(self):
-        self.boundary_points.points = []
-        self.points.points = []
-        self.line.points = []
-        self.V = []
-        self.first_run = True
-
-    def explore(self):
-        xr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_x + self.start_x
-        yr = np.random.uniform(-0.5, 0.5, 1) * self.init_map_y + self.start_y
-        x_rand = np.array([xr, yr])
-        x_nearest = utils.nearest(self.V, x_rand)
-        x_new = utils.steer(x_nearest, x_rand, self.eta)
-        obstacle_free, stopped_point = utils.obstacle_free(x_nearest, x_new, self.occupy_map_data)
-        if obstacle_free == -1:
-            p = Point()
-            p.x = stopped_point[0]
-            p.y = stopped_point[1]
-            p.z = 0.0
-            self.points.points.append(p)
-            self.shapes_pub.publish(p)
-
-            goal = PointStamped()
-            goal.header.stamp = rospy.Time.now()
-            goal.header.frame_id = self.occupy_map_data.header.frame_id
-            goal.point.x = stopped_point[0]
-            goal.point.y = stopped_point[1]
-            goal.point.z = 0.0
-            self.detected_points_pub.publish(goal)
-            self.points.points = []
-        elif obstacle_free == 1:
-            self.V.append(stopped_point)
-            p = Point()
-            p.x = stopped_point[0]
-            p.y = stopped_point[1]
-            p.z = 0.0
-            self.line.points.append(p)
-
-            p = Point()
-            p.x = x_nearest[0]
-            p.y = x_nearest[1]
-            p.z = 0.0
-            self.line.points.append(p)
-        self.shapes_pub.publish(self.line)
-
-    def map_callback(self, data):
-        self.occupy_map_data = data
-
-    def rviz_callback(self, data):
-        temp_point = Point()
-        temp_point.x = data.point.x
-        temp_point.y = data.point.y
-        temp_point.z = data.point.z
-        self.boundary_points.points.append(temp_point)
-
-    def start_signal_callback(self, data):
-        self.start_signal = data.data
-
-    def reset_signal_callBack(self, data):
-        self.reset_signal = data.data
-
-    def init(self):
-        self.eta = rospy.get_param('~eta', 0.5)
-        self.map_topic = rospy.get_param('~map_topic', "/map")
-        self.rate_hz = rospy.get_param('~rate', 100)
-
-        rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_callback, queue_size=100)
-        rospy.Subscriber("/clicked_point", PointStamped, self.rviz_callback, queue_size=100)
-        rospy.Subscriber("/explore_start", Bool, self.start_signal_callback, queue_size=100)
-        rospy.Subscriber("/explore_reset", Bool, self.reset_signal_callBack, queue_size=100)
-
-        self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=10)
-        self.shapes_pub = rospy.Publisher(self.node_name + '/_shapes', Marker, queue_size=10)
-
-        self.rate = rospy.Rate(self.rate_hz)
-
-        while len(self.occupy_map_data.data) < 1:
-            rospy.loginfo('Waiting for the map')
-            rospy.sleep(0.1)
-            pass
-
-    def loop(self):
-        while not rospy.is_shutdown():
-            if self.reset_signal:
-                self.reset()
-                self.rate.sleep()
-            else:
-                if self.start_signal:
-                    if self.first_run:
-                        self.init_visual_info()
-                        while self.points.points.size() < 5:
-                            self.rate.sleep()
-                        self.cal_init_info()
-                        self.shapes_pub.publish(self.points)
-                        self.first_run = False
-
-                    if not self.first_run:
-                        while self.start_signal:
-                            self.explore()
-                            self.rate.sleep()
-                else:
-                    self.rate.sleep()
-
 
 if __name__ == '__main__':
     try:
@@ -189,9 +221,5 @@ if __name__ == '__main__':
         gd = Detector(nn, 'global')
         gd.init()
         gd.loop()
-
-        # ld = Detector(nn, 'local')
-        # ld.init()
-        # ld.loop()
     except rospy.ROSInterruptException:
         pass

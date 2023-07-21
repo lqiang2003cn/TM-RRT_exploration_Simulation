@@ -30,7 +30,7 @@ def grid_value(map_data, point):
     m_starty = map_data.info.origin.position.y
     width = map_data.info.width
     idx = (np.floor((point[1] - m_starty) / resolution) * width) + np.floor((point[0] - m_startx) / resolution)
-    return map_data.data[idx]
+    return map_data.data[int(idx)]
 
 
 def obstacle_free(x_nearest, x_new, map_data):
