@@ -1,5 +1,6 @@
 import numpy as np
 import rospy
+import tf
 from geometry_msgs.msg import PointStamped, Point
 from nav_msgs.msg import OccupancyGrid, Odometry
 from numpy.linalg import norm
@@ -25,7 +26,7 @@ class Detector:
         self.first_run = True
         self.V = []
         self.eta = 1
-        self.map_topic = '/map'
+        self.map_topic = None
         self.rate_hz = 100
         self.detected_points_pub = None
         self.shapes_pub = None
@@ -34,13 +35,18 @@ class Detector:
         self.mode = mode
         self.odom_points = None
         self.odom_topic = None
+        self.tf_listener = tf.TransformListener()
+        self.map_frame = None
+        self.robot_frame = None
 
     def init(self):
         robot_name = '/tb3_0'
         self.eta = rospy.get_param('~eta', 0.5)
         self.map_topic = rospy.get_param('~map_topic', "/map")
+        self.map_frame = rospy.get_param('~map_frame', "map")
         self.rate_hz = rospy.get_param('~rate', 100)
         self.odom_topic = rospy.get_param('~odom_topic', robot_name + '/odom')
+        self.robot_frame = rospy.get_param('~robot_frame', robot_name + '/base_footprint')
 
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_callback, queue_size=100)
         rospy.Subscriber("/explore_start", Bool, self.start_signal_callback, queue_size=10)
@@ -115,7 +121,7 @@ class Detector:
             x_nearest = utils.nearest(self.V, x_rand)
             x_new = utils.steer(x_nearest, x_rand, self.eta)
             obstacle_free, stopped_point = utils.obstacle_free(x_nearest, x_new, self.occupy_map_data)
-            if obstacle_free == -1:
+            if obstacle_free == -1:  # unknown
                 p = Point()
                 p.x = stopped_point[0]
                 p.y = stopped_point[1]
@@ -130,8 +136,23 @@ class Detector:
                 goal.point.x = stopped_point[0]
                 goal.point.y = stopped_point[1]
                 goal.point.z = 0.0
-                # self.detected_points_pub.publish(goal)
-            elif obstacle_free == 1:
+                self.detected_points_pub.publish(goal)
+
+                if self.mode == 'local':
+                    self.V = []
+                    query_ok = 0
+                    while query_ok == 0:
+                        try:
+                            p, _ = self.tf_listener.lookupTransform(self.map_frame, self.robot_frame, rospy.Time(0))
+                            query_ok = 1
+                        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                            query_ok = 0
+                    self.V.append(np.array([p[0], p[1]]))
+                    self.line.points = []
+                    self.shapes_pub.publish(self.line)
+                    # rospy.sleep(0.5)
+
+            elif obstacle_free == 1:  # free
                 self.V.append(stopped_point)
                 p = Point()
                 p.x = stopped_point[0]
@@ -183,44 +204,41 @@ class Detector:
         self.odom_points = [data.pose.pose.position.x, data.pose.pose.position.y]
 
     def init_visual_info(self):
+        point_rgb = None
+        line_rgb = None
+        if self.mode == 'global':
+            point_rgb = [0, 0, 1]  # blue point
+            line_rgb = [9.0 / 255.0, 91.0 / 255.0, 236.0 / 255.0]  # shallow blue
+        elif self.mode == 'local':
+            point_rgb = [1, 0, 0]  # blue point
+            line_rgb = [1, 0, 0]  # red line
+
         self.points.header.frame_id = self.occupy_map_data.header.frame_id
         self.points.header.stamp = rospy.Time.now()
-        self.points.ns = "global_RRT"
+        self.points.ns = self.mode + "_RRT"
         self.points.id = 0
         self.points.type = self.points.POINTS
         self.points.action = self.points.ADD
         self.points.pose.orientation.w = 1.0
         self.points.scale.x = 0.3
         self.points.scale.y = 0.3
-        self.points.color.r = 255.0 / 255.0
-        self.points.color.g = 0.0 / 255.0
-        self.points.color.b = 0.0 / 255.0
+        self.points.color.r = point_rgb[0]
+        self.points.color.g = point_rgb[1]
+        self.points.color.b = point_rgb[2]
         self.points.color.a = 0.5
         self.points.lifetime = rospy.Duration()
 
         self.line.header.frame_id = self.occupy_map_data.header.frame_id
         self.line.header.stamp = rospy.Time.now()
-        self.line.ns = "global_RRT"
+        self.line.ns = self.mode + "_RRT"
         self.line.id = 1
         self.line.type = self.line.LINE_LIST
         self.line.action = self.line.ADD
         self.line.pose.orientation.w = 1.0
         self.line.scale.x = 0.07
         self.line.scale.y = 0.07
-        self.line.color.r = 9.0 / 255.0
-        self.line.color.g = 91.0 / 255.0
-        self.line.color.b = 236.0 / 255.0
+        self.line.color.r = line_rgb[0]
+        self.line.color.g = line_rgb[1]
+        self.line.color.b = line_rgb[2]
         self.line.color.a = 0.2
         self.line.lifetime = rospy.Duration()
-
-
-if __name__ == '__main__':
-    try:
-        np.random.seed(42)
-        nn = 'global_rrt_detector'
-        rospy.init_node(nn, anonymous=False)
-        gd = Detector(nn, 'global')
-        gd.init()
-        gd.loop()
-    except rospy.ROSInterruptException:
-        pass

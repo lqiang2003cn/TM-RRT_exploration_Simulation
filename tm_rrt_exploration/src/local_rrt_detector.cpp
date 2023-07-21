@@ -215,8 +215,8 @@ int main(int argc, char **argv) {
                             pub.publish(points);
                             targetspub.publish(exploration_goal);
                             points.points.clear();
-                            V.clear();
 
+                            V.clear();
                             tf::StampedTransform transform;
                             int temp = 0;
                             while (temp == 0) {

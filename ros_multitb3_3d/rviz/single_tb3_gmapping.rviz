@@ -179,7 +179,7 @@ Visualization Manager:
       Marker Topic: /local_rrt_detector_shapes
       Name: local_RRT
       Namespaces:
-        {}
+        local_RRT: true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -274,23 +274,23 @@ Visualization Manager:
     - Alpha: 1
       Class: rviz/PointStamped
       Color: 204; 41; 204
-      Enabled: true
+      Enabled: false
       History Length: 1
       Name: clicked_points
       Radius: 0.20000000298023224
       Topic: /clicked_point
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/PointStamped
       Color: 204; 41; 204
-      Enabled: true
+      Enabled: false
       History Length: 1
       Name: detected_points
       Radius: 0.20000000298023224
       Topic: /detected_points
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Class: rviz/Polygon
       Color: 25; 255; 0
@@ -610,7 +610,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 9.85232162475586
+      Distance: 11.165534019470215
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
