@@ -130,7 +130,7 @@ class Detector:
                 goal.point.x = stopped_point[0]
                 goal.point.y = stopped_point[1]
                 goal.point.z = 0.0
-                self.detected_points_pub.publish(goal)
+                # self.detected_points_pub.publish(goal)
             elif obstacle_free == 1:
                 self.V.append(stopped_point)
                 p = Point()
@@ -144,7 +144,7 @@ class Detector:
                 p.y = x_nearest[1]
                 p.z = 0.0
                 self.line.points.append(p)
-            self.shapes_pub.publish(self.line)
+                self.shapes_pub.publish(self.line)
             self.rate.sleep()
 
     def map_callback(self, data):
