@@ -54,7 +54,7 @@ std::vector<float> Steer(std::vector<float> x_nearest, std::vector<float> x_rand
     } else {
         float m = (x_rand[1] - x_nearest[1]) / (x_rand[0] - x_nearest[0]);
 
-        x_new.push_back((sign(x_rand[0] - x_nearest[0])) * (sqrt((pow(eta, 2)) / ((pow(m, 2)) + 1))) + x_nearest[0]);
+        x_new.push_back( (sign(x_rand[0] - x_nearest[0])) * (  sqrt( (pow(eta, 2)) / ((pow(m, 2)) + 1) )  ) + x_nearest[0]  );
         x_new.push_back(m * (x_new[0] - x_nearest[0]) + x_nearest[1]);
 
         if (x_rand[0] == x_nearest[0]) {

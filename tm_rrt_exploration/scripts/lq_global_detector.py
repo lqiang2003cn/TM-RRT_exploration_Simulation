@@ -48,7 +48,7 @@ class Detector:
         rospy.Subscriber(self.odom_topic, Odometry, self.odom_callback)
 
         self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=100)
-        self.shapes_pub = rospy.Publisher(self.node_name + '/_shapes', Marker, queue_size=100)
+        self.shapes_pub = rospy.Publisher(self.node_name + '_shapes', Marker, queue_size=100)
 
         self.rate = rospy.Rate(self.rate_hz)
 
@@ -121,7 +121,8 @@ class Detector:
                 p.y = stopped_point[1]
                 p.z = 0.0
                 self.points.points.append(p)
-                self.shapes_pub.publish(p)
+                self.shapes_pub.publish(self.points)
+                self.points.points = []
 
                 goal = PointStamped()
                 goal.header.stamp = rospy.Time.now()
@@ -130,7 +131,6 @@ class Detector:
                 goal.point.y = stopped_point[1]
                 goal.point.z = 0.0
                 self.detected_points_pub.publish(goal)
-                self.points.points = []
             elif obstacle_free == 1:
                 self.V.append(stopped_point)
                 p = Point()
@@ -216,6 +216,7 @@ class Detector:
 
 if __name__ == '__main__':
     try:
+        np.random.seed(42)
         nn = 'global_rrt_detector'
         rospy.init_node(nn, anonymous=False)
         gd = Detector(nn, 'global')

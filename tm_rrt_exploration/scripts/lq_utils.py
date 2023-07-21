@@ -17,11 +17,14 @@ def steer(x_nearest, x_rand, eta):
 
 
 def nearest(V, x):
-    min_p = np.inf
+    min_dist = np.inf
+    min_v = None  # assuming V is not empty
     for v in V:
-        if norm(v - x) < min_p:
-            min_p = v
-    return min_p
+        dist = norm(v - x)
+        if dist < min_dist:
+            min_dist = dist
+            min_v = v
+    return min_v
 
 
 def grid_value(map_data, point):
@@ -42,7 +45,7 @@ def obstacle_free(x_nearest, x_new, map_data):
 
     for i in range(steps):
         xi = steer(xi, x_new, rez)
-        grid_v = grid_value(map_data, xi)
+        grid_v = grid_value(map_data, xi)  # grid_v: 0:free, -1:unknown, 100:obstacle
         if grid_v > 80:
             obs = 1
         elif grid_v == -1:
@@ -56,4 +59,4 @@ def obstacle_free(x_nearest, x_new, map_data):
         out = 0
     else:
         out = 1
-    return xi, out
+    return out, xi
