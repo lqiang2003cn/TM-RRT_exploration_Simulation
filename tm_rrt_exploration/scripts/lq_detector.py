@@ -136,6 +136,7 @@ class Detector:
                 goal.point.x = stopped_point[0]
                 goal.point.y = stopped_point[1]
                 goal.point.z = 0.0
+
                 self.detected_points_pub.publish(goal)
 
                 if self.mode == 'local':
@@ -166,7 +167,7 @@ class Detector:
                 p.z = 0.0
                 self.line.points.append(p)
                 self.shapes_pub.publish(self.line)
-            self.rate.sleep()
+            rospy.sleep(2)
 
     def map_callback(self, data):
         self.occupy_map_data = data

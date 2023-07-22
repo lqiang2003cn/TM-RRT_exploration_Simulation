@@ -116,8 +116,8 @@ def information_gain(mapData, point, r):
         end = start + 2 * r_region
         limit = ((start / mapData.info.width) + 2) * mapData.info.width
         for i in range(start, end + 1):
-            if (i >= 0 and i < limit and i < len(mapData.data)):
-                if (mapData.data[i] == -1 and norm(np.array(point) - point_of_index(mapData, i)) <= r):
+            if 0 <= i < limit and i < len(mapData.data):
+                if mapData.data[i] == -1 and norm(np.array(point) - point_of_index(mapData, i)) <= r:
                     infoGain = infoGain + 1.0
     return infoGain * (mapData.info.resolution ** 2)
 
@@ -127,7 +127,6 @@ def index_of_point(mapData, Xp):
     Xstartx = mapData.info.origin.position.x
     Xstarty = mapData.info.origin.position.y
     width = mapData.info.width
-    Data = mapData.data
     index = int((np.floor((Xp[1] - Xstarty) / resolution) * width) + (np.floor((Xp[0] - Xstartx) / resolution)))
     return index
 

@@ -40,7 +40,6 @@ class Filter:
         self.bandwith_cluster = None
         self.robot_frame = None
         self.inv_frontier_topic = None
-        self.local_map_sub = None
         self.compute_cycle = None
         self.start_signal_topic = None
         self.reset_signal_topic = None
@@ -57,33 +56,28 @@ class Filter:
         self.centroids_points = None
 
     def init(self):
-        self.map_topic = rospy.get_param('~map_topic', '/map')
+        self.map_topic = rospy.get_param('~map_topic', self.robot_name + '/map')
         self.threshold = rospy.get_param('~costmap_clearing_threshold', 70)
         self.info_radius = rospy.get_param('~info_radius', 1.0)
         self.detected_points = rospy.get_param('~detected_points', '/detected_points')
         self.rate_hz = rospy.get_param('~rate', 100)
         self.global_costmap_topic = rospy.get_param('~global_costmap_topic', '/move_base_node/global_costmap/costmap')
-        self.local_map_topic = rospy.get_param('~local_map', self.robot_name + '/map')
+        self.local_map_topic = rospy.get_param('~local_map', '/map')
         self.bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
         self.robot_frame = rospy.get_param('~robot_frame', self.robot_name + '/base_footprint')
         self.inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_points')
         self.compute_cycle = rospy.get_param('~compute_cycle', 0.0)
         self.start_signal_topic = rospy.get_param('~start_signal_topic', '/explore_start')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
+        self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
         self.rate = rospy.Rate(self.rate_hz)
+        self.global_map = OccupancyGrid()
 
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_call_back)
         rospy.Subscriber(self.inv_frontier_topic, invalidArray, self.invalid_call_back)
         rospy.Subscriber(self.start_signal_topic, Bool, self.start_signal_call_back)
         rospy.Subscriber(self.reset_signal_topic, Bool, self.reset_signal_topic)
-
-        # ---------------------------------------------------------------------------------------------------------------
-        self.global_map = OccupancyGrid()
-        self.local_map = OccupancyGrid()
-
         rospy.Subscriber(self.robot_name + self.global_costmap_topic, OccupancyGrid, self.global_cost_map_call_back)
-        if self.local_map_sub:
-            rospy.Subscriber(self.robot_name + self.local_map_topic, OccupancyGrid, self.local_map_call_back)
 
         while len(self.map_data.data) < 1:
             rospy.loginfo('Waiting for the map')
@@ -94,12 +88,6 @@ class Filter:
             rospy.loginfo('Waiting for the global costmap')
             rospy.sleep(0.1)
             pass
-
-        if self.local_map_sub:
-            while len(self.local_map.data.data) < 1:
-                rospy.loginfo('Waiting for the local map')
-                rospy.sleep(0.1)
-                pass
 
         global_frame = "/" + self.map_data.header.frame_id
 
@@ -187,25 +175,28 @@ class Filter:
 
             z = 0
             while z < len(centroids):
-                cond1 = False
-                cond3 = False
+                invalid_cnd = False
+                map_cnd = False
                 temp_point.point.x = centroids[z][0]
                 temp_point.point.y = centroids[z][1]
-
                 trans_point = self.tf_listener.transformPoint(self.global_map.header.frame_id, temp_point)
                 trans_pts_np = array([trans_point.point.x, trans_point.point.y])
-                cond1 = (utils.grid_value(self.global_map, trans_pts_np) > self.threshold) or cond1
 
+                # global map check
+                global_cnd = (utils.grid_value(self.global_map, trans_pts_np) > self.threshold)
+
+                # invalid point check
                 for inv_frt in range(0, len(self.invalid_frontier)):
                     if norm(centroids[z], self.invalid_frontier[inv_frt]) < 0.1:
-                        cond2 = True
+                        invalid_cnd = True
 
                 map_value = utils.grid_value_merged_map(self.map_data, centroids[z])
                 if map_value > 90:  # if the map value is unknown or obstacle
-                    cond3 = True
+                    map_cnd = True
+
                 info_gain = information_gain(self.map_data, centroids[z], self.info_radius * 0.5)
 
-                if cond1 or cond3 or info_gain < 0.2:
+                if global_cnd or invalid_cnd or map_cnd or info_gain < 0.2:
                     centroids = delete(centroids, z, axis=0)
                     z = z - 1
                 z += 1
@@ -289,12 +280,12 @@ class Filter:
 
 if __name__ == '__main__':
     try:
-        robot_name = 'tb3_0'
-        func_node_name = 'filter'
-        node_name = func_node_name + '_' + robot_name
-        rospy.init_node(node_name, anonymous=False)
+        rn = 'tb3_0'
+        func_nn = 'filter'
+        nn = func_nn + '_' + rn
+        rospy.init_node(nn, anonymous=False)
 
-        frontier_filter = Filter(node_name, robot_name)
+        frontier_filter = Filter(nn, rn)
         frontier_filter.init()
         frontier_filter.loop()
     except rospy.ROSInterruptException:

@@ -23,7 +23,7 @@ frontiers = []
 globalmaps = []
 localmaps = []
 invalidFrontier = []
-startStopSignal = False
+startStopSignal = True
 resetSignal = False
 
 
