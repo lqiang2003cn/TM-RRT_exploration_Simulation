@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-import time
 from copy import copy
 
-# --------Include modules---------------
 import rospy
 import tf
 from geometry_msgs.msg import Point
@@ -17,7 +15,6 @@ from tmrrt_exploration.msg import PointArray, invalidArray
 from visualization_msgs.msg import Marker
 
 import lq_utils as utils
-from functions import information_gain
 
 
 class Filter:
@@ -28,7 +25,7 @@ class Filter:
         self.global_map = None
         self.local_map = None
         self.invalid_frontier = []
-        self.start_signal = False
+        self.start_signal = True
         self.reset_signal = False
         self.robot_name = robot_name
         self.threshold = None
@@ -40,7 +37,6 @@ class Filter:
         self.bandwith_cluster = None
         self.robot_frame = None
         self.inv_frontier_topic = None
-        self.compute_cycle = None
         self.start_signal_topic = None
         self.reset_signal_topic = None
         self.rate = None
@@ -48,12 +44,14 @@ class Filter:
         self.tf_listener = None
         self.global_frame = None
         self.frontier_points_pub = None
-        self.centroid_points_pub = None
+        self.filtered_points_shape_pub = None
         self.filtered_points_pub = None
-        self.points = None
+        self.frontiers_points = None
         self.node_name = node_name
-        self.points = None
-        self.centroids_points = None
+        self.frontiers_points = None
+        self.filtered_points_shape = None
+        self.global_frame = None
+        self.frontiers = None
 
     def init(self):
         self.map_topic = rospy.get_param('~map_topic', self.robot_name + '/map')
@@ -66,18 +64,22 @@ class Filter:
         self.bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
         self.robot_frame = rospy.get_param('~robot_frame', self.robot_name + '/base_footprint')
         self.inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_points')
-        self.compute_cycle = rospy.get_param('~compute_cycle', 0.0)
         self.start_signal_topic = rospy.get_param('~start_signal_topic', '/explore_start')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
         self.rate = rospy.Rate(self.rate_hz)
         self.global_map = OccupancyGrid()
+        self.frontiers = []
 
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_call_back)
         rospy.Subscriber(self.inv_frontier_topic, invalidArray, self.invalid_call_back)
         rospy.Subscriber(self.start_signal_topic, Bool, self.start_signal_call_back)
         rospy.Subscriber(self.reset_signal_topic, Bool, self.reset_signal_topic)
         rospy.Subscriber(self.robot_name + self.global_costmap_topic, OccupancyGrid, self.global_cost_map_call_back)
+
+        # self.frontier_points_pub = rospy.Publisher('/frontiers', Marker, queue_size=10)
+        self.filtered_points_shape_pub = rospy.Publisher('/filtered_points_shapes', Marker, queue_size=10)
+        self.filtered_points_pub = rospy.Publisher('/filtered_points', PointArray, queue_size=10)
 
         while len(self.map_data.data) < 1:
             rospy.loginfo('Waiting for the map')
@@ -88,8 +90,7 @@ class Filter:
             rospy.loginfo('Waiting for the global costmap')
             rospy.sleep(0.1)
             pass
-
-        global_frame = "/" + self.map_data.header.frame_id
+        self.global_frame = self.map_data.header.frame_id
 
         try:
             self.tf_listener = tf.TransformListener()
@@ -98,55 +99,51 @@ class Filter:
             pass
 
         rospy.loginfo('Waiting for TF Transformer')
-        self.tf_listener.waitForTransform(global_frame[1:], self.robot_frame, rospy.Time(0), rospy.Duration(10))
+        self.tf_listener.waitForTransform(self.global_frame, self.robot_frame, rospy.Time(0), rospy.Duration(10))
 
         rospy.Subscriber(
-            self.detected_points,
-            PointStamped,
-            callback=self.frontier_call_back,
-            callback_args=[self.tf_listener, self.global_frame[1:]]
+            self.detected_points, PointStamped, callback=self.frontier_call_back,
+            callback_args=[self.tf_listener, self.global_frame]
         )
 
-        self.frontier_points_pub = rospy.Publisher('/frontiers', Marker, queue_size=10)
-        self.centroid_points_pub = rospy.Publisher('/centroids', Marker, queue_size=10)
-        self.filtered_points_pub = rospy.Publisher('/filtered_points', PointArray, queue_size=10)
-
+        self.init_markers()
         rospy.loginfo("the map and global costmaps are received")
 
-        while len(self.frontiers_points) < 1:
+        while len(self.frontiers) < 1:
             pass
 
-        self.points = Marker()
-        self.points.header.frame_id = self.map_data.header.frame_id
-        self.points.header.stamp = rospy.Time.now()
-        self.points.ns = "frontiers"
-        self.points.id = 0
-        self.points.type = Marker.POINTS
-        self.points.action = Marker.ADD
-        self.points.pose.orientation.w = 1.0
-        self.points.scale.x = 0.2
-        self.points.scale.y = 0.2
-        self.points.color.r = 255.0 / 255.0
-        self.points.color.g = 255.0 / 255.0
-        self.points.color.b = 0.0 / 255.0
-        self.points.color.a = 0.5
-        self.points.lifetime = rospy.Duration()
+    def init_markers(self):
+        self.frontiers_points = Marker()
+        self.frontiers_points.header.frame_id = self.map_data.header.frame_id
+        self.frontiers_points.header.stamp = rospy.Time.now()
+        self.frontiers_points.ns = "frontiers"
+        self.frontiers_points.id = 0
+        self.frontiers_points.type = Marker.POINTS
+        self.frontiers_points.action = Marker.ADD
+        self.frontiers_points.pose.orientation.w = 1.0
+        self.frontiers_points.scale.x = 0.2
+        self.frontiers_points.scale.y = 0.2
+        self.frontiers_points.color.r = 255.0 / 255.0
+        self.frontiers_points.color.g = 255.0 / 255.0
+        self.frontiers_points.color.b = 0.0 / 255.0
+        self.frontiers_points.color.a = 0.5
+        self.frontiers_points.lifetime = rospy.Duration()
 
-        self.centroids_points = Marker()
-        self.centroids_points.header.frame_id = self.map_data.header.frame_id
-        self.centroids_points.header.stamp = rospy.Time.now()
-        self.centroids_points.ns = "centroid"
-        self.centroids_points.id = 4
-        self.centroids_points.type = Marker.POINTS
-        self.centroids_points.action = Marker.ADD
-        self.centroids_points.pose.orientation.w = 1.0
-        self.centroids_points.scale.x = 0.4
-        self.centroids_points.scale.y = 0.4
-        self.centroids_points.color.r = 0.0 / 255.0
-        self.centroids_points.color.g = 255.0 / 255.0
-        self.centroids_points.color.b = 0.0 / 255.0
-        self.centroids_points.color.a = 1
-        self.centroids_points.lifetime = rospy.Duration()
+        self.filtered_points_shape = Marker()
+        self.filtered_points_shape.header.frame_id = self.map_data.header.frame_id
+        self.filtered_points_shape.header.stamp = rospy.Time.now()
+        self.filtered_points_shape.ns = "centroid"
+        self.filtered_points_shape.id = 4
+        self.filtered_points_shape.type = Marker.POINTS
+        self.filtered_points_shape.action = Marker.ADD
+        self.filtered_points_shape.pose.orientation.w = 1.0
+        self.filtered_points_shape.scale.x = 0.4
+        self.filtered_points_shape.scale.y = 0.4
+        self.filtered_points_shape.color.r = 0.0 / 255.0
+        self.filtered_points_shape.color.g = 255.0 / 255.0
+        self.filtered_points_shape.color.b = 0.0 / 255.0
+        self.filtered_points_shape.color.a = 1
+        self.filtered_points_shape.lifetime = rospy.Duration()
 
     def reset(self):
         self.frontiers_points = []
@@ -158,82 +155,82 @@ class Filter:
         temp_point.header.stamp = rospy.Time(0)
         temp_point.point.z = 0.0
         filtered_points = PointArray()
-        # temp_point = Point()
-        # temp_point.z = 0.0
-        next_compute_time = time.time()
-        if time.time() + self.compute_cycle >= next_compute_time:  # why
-            centroids = []
-            front = copy(self.frontiers_points)
-            if len(front) > 1:
-                ms = MeanShift(bandwidth=self.bandwith_cluster)
-                ms.fit(front)
-                centroids = ms.cluster_centers_  # centroids array is the centers of each cluster
-            elif len(front) == 1:
-                centroids = front
 
-            # self.frontiers = copy(centroids)
+        centroids = []
+        frontiers_snapshot = copy(self.frontiers)
+        self.frontiers = []
+        if len(frontiers_snapshot) > 1:
+            ms = MeanShift(bandwidth=self.bandwith_cluster)
+            ms.fit(frontiers_snapshot)
+            centroids = ms.cluster_centers_  # centroids array is the centers of each cluster
+        elif len(frontiers_snapshot) == 1:
+            centroids = frontiers_snapshot
 
-            z = 0
-            while z < len(centroids):
-                invalid_cnd = False
-                map_cnd = False
-                temp_point.point.x = centroids[z][0]
-                temp_point.point.y = centroids[z][1]
-                trans_point = self.tf_listener.transformPoint(self.global_map.header.frame_id, temp_point)
-                trans_pts_np = array([trans_point.point.x, trans_point.point.y])
+        z = 0
+        while z < len(centroids):
+            invalid_cnd = False
+            map_cnd = False
+            temp_point.point.x = centroids[z][0]
+            temp_point.point.y = centroids[z][1]
+            trans_point = self.tf_listener.transformPoint(self.global_map.header.frame_id, temp_point)
+            trans_pts_np = array([trans_point.point.x, trans_point.point.y])
 
-                # global map check
-                global_cnd = (utils.grid_value(self.global_map, trans_pts_np) > self.threshold)
+            # global map check
+            global_cnd = (utils.grid_value(self.global_map, trans_pts_np) > self.threshold)
 
-                # invalid point check
-                for inv_frt in range(0, len(self.invalid_frontier)):
-                    if norm(centroids[z], self.invalid_frontier[inv_frt]) < 0.1:
-                        invalid_cnd = True
+            # invalid point check
+            for inv_frt in range(0, len(self.invalid_frontier)):
+                if norm(centroids[z], self.invalid_frontier[inv_frt]) < 0.1:
+                    invalid_cnd = True
 
-                map_value = utils.grid_value_merged_map(self.map_data, centroids[z])
-                if map_value > 90:  # if the map value is unknown or obstacle
-                    map_cnd = True
+            map_value = utils.grid_value_merged_map(self.map_data, centroids[z])
+            if map_value > 90:  # if the map value is unknown or obstacle
+                map_cnd = True
 
-                info_gain = information_gain(self.map_data, centroids[z], self.info_radius * 0.5)
+            info_gain = utils.information_gain(self.map_data, centroids[z], self.info_radius * 0.5)
 
-                if global_cnd or invalid_cnd or map_cnd or info_gain < 0.2:
-                    centroids = delete(centroids, z, axis=0)
-                    z = z - 1
-                z += 1
+            if global_cnd or invalid_cnd or map_cnd or info_gain < 0.2:
+                centroids = delete(centroids, z, axis=0)
+                z = z - 1
+            z += 1
 
-            # publishing
-            filtered_points.points = []
-            for i in range(0, len(centroids)):
-                invalid_pts = False
-                for j in range(0, len(self.invalid_frontier)):
-                    if self.invalid_frontier[j][0] == centroids[i][0] and self.invalid_frontier[j][1] == centroids[i][1]:
-                        invalid_pts = True
-                if not invalid_pts:
-                    tp = Point()
-                    tp.x = round(centroids[i][0], 2)
-                    tp.y = round(centroids[i][1], 2)
-                    tp.z = 0.0
-                    filtered_points.points.append(temp_point)
+        # publishing
+        filtered_points.points = []
+        for i in range(0, len(centroids)):
+            invalid_pts = False
+            for j in range(0, len(self.invalid_frontier)):
+                if self.invalid_frontier[j][0] == centroids[i][0] and self.invalid_frontier[j][1] == centroids[i][1]:
+                    invalid_pts = True
+            if not invalid_pts:
+                tp = Point()
+                tp.x = round(centroids[i][0], 2)
+                tp.y = round(centroids[i][1], 2)
+                tp.z = 0.0
+                filtered_points.points.append(tp)
 
-            pp = []
-            for q in range(0, len(self.frontiers_points)):
-                p = Point()
-                p.x = self.frontiers_points[q][0]
-                p.y = self.frontiers_points[q][1]
-                pp.append(copy(p))
-            self.frontiers_points.points = pp
+        if len(filtered_points.points) > 0:
+            # pp = []
+            # for q in range(0, len(frontiers_snapshot)):
+            #     p = Point()
+            #     p.x = frontiers_snapshot[q][0]
+            #     p.y = frontiers_snapshot[q][1]
+            #     p.z = 0
+            #     pp.append(p)
+            # self.frontiers_points.points = pp
 
             pp = []
-            for q in range(0, len(centroids)):
+            for q in range(0, len(filtered_points.points)):
                 p = Point()
-                p.x = centroids[q][0]
-                p.y = centroids[q][1]
+                p.x = filtered_points.points[q].x
+                p.y = filtered_points.points[q].y
+                p.z = filtered_points.points[q].z
                 pp.append(p)
-            self.centroids_points.points = pp
+            self.filtered_points_shape.points = pp
 
+            # the same filtered points pass to different destinations
             self.filtered_points_pub.publish(filtered_points)
-            self.frontier_points_pub.publish(self.frontiers_points)
-            self.centroid_points_pub.publish(self.centroids_points)
+            self.filtered_points_shape_pub.publish(self.filtered_points_shape)
+            # self.frontier_points_pub.publish(self.frontiers_points)
 
         self.rate.sleep()
 
@@ -252,17 +249,17 @@ class Filter:
         transformed_point = args[0].transformPoint(args[1], data)
         x = [array([transformed_point.point.x, transformed_point.point.y])]
 
-        if len(self.frontiers_points) > 0:
-            self.frontiers_points = vstack((self.frontiers_points, x))
+        if len(self.frontiers) > 0:
+            self.frontiers = vstack((self.frontiers, x))
         else:
-            self.frontiers_points = x
+            self.frontiers = x
 
     def map_call_back(self, data):
         self.map_data = data
 
     def invalid_call_back(self, data):
         self.invalid_frontier = []
-        for point in data.points:
+        for point in data.frontiers_points:
             self.invalid_frontier.append(array([point.x, point.y]))
 
     def local_map_call_back(self, data):

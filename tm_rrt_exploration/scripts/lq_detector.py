@@ -122,13 +122,13 @@ class Detector:
             x_new = utils.steer(x_nearest, x_rand, self.eta)
             obstacle_free, stopped_point = utils.obstacle_free(x_nearest, x_new, self.occupy_map_data)
             if obstacle_free == -1:  # unknown
-                p = Point()
-                p.x = stopped_point[0]
-                p.y = stopped_point[1]
-                p.z = 0.0
-                self.points.points.append(p)
-                self.shapes_pub.publish(self.points)
-                self.points.points = []
+                # p = Point()
+                # p.x = stopped_point[0]
+                # p.y = stopped_point[1]
+                # p.z = 0.0
+                # self.points.points.append(p)
+                # self.shapes_pub.publish(self.points)
+                # self.points.points = []
 
                 goal = PointStamped()
                 goal.header.stamp = rospy.Time.now()
@@ -142,32 +142,35 @@ class Detector:
                 if self.mode == 'local':
                     self.V = []
                     query_ok = 0
+                    position = None
                     while query_ok == 0:
                         try:
-                            p, _ = self.tf_listener.lookupTransform(self.map_frame, self.robot_frame, rospy.Time(0))
+                            position, _ = self.tf_listener.lookupTransform(self.map_frame, self.robot_frame, rospy.Time(0))
                             query_ok = 1
                         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                             query_ok = 0
-                    self.V.append(np.array([p[0], p[1]]))
+
+                    self.V.append(np.array([position[0], position[1]]))
                     self.line.points = []
                     self.shapes_pub.publish(self.line)
                     # rospy.sleep(0.5)
 
             elif obstacle_free == 1:  # free
                 self.V.append(stopped_point)
-                p = Point()
-                p.x = stopped_point[0]
-                p.y = stopped_point[1]
-                p.z = 0.0
-                self.line.points.append(p)
+                position = Point()
+                position.x = stopped_point[0]
+                position.y = stopped_point[1]
+                position.z = 0.0
+                self.line.points.append(position)
 
-                p = Point()
-                p.x = x_nearest[0]
-                p.y = x_nearest[1]
-                p.z = 0.0
-                self.line.points.append(p)
+                position = Point()
+                position.x = x_nearest[0]
+                position.y = x_nearest[1]
+                position.z = 0.0
+                self.line.points.append(position)
                 self.shapes_pub.publish(self.line)
-            rospy.sleep(2)
+            # rospy.sleep(2)
+            self.rate.sleep()
 
     def map_callback(self, data):
         self.occupy_map_data = data

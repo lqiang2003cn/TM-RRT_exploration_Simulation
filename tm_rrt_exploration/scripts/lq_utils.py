@@ -106,22 +106,6 @@ def square_area_check(data, index, width, distance=2):
     return dataOutList
 
 
-def information_gain(mapData, point, r):
-    infoGain = 0.0
-    index = index_of_point(mapData, point)
-    r_region = int(r / mapData.info.resolution)
-    init_index = index - r_region * (mapData.info.width + 1)
-    for n in range(0, 2 * r_region + 1):
-        start = n * mapData.info.width + init_index
-        end = start + 2 * r_region
-        limit = ((start / mapData.info.width) + 2) * mapData.info.width
-        for i in range(start, end + 1):
-            if 0 <= i < limit and i < len(mapData.data):
-                if mapData.data[i] == -1 and norm(np.array(point) - point_of_index(mapData, i)) <= r:
-                    infoGain = infoGain + 1.0
-    return infoGain * (mapData.info.resolution ** 2)
-
-
 def index_of_point(mapData, Xp):
     resolution = mapData.info.resolution
     Xstartx = mapData.info.origin.position.x
@@ -137,3 +121,19 @@ def point_of_index(mapData, i):
         i - (int(i / mapData.info.width) * mapData.info.width)) * mapData.info.resolution
     # modified for certain python version might mismatch the int and float conversion
     return np.array([x, y])
+
+
+def information_gain(mapData, point, r):
+    infoGain = 0.0
+    index = index_of_point(mapData, point)
+    r_region = int(r / mapData.info.resolution)
+    init_index = index - r_region * (mapData.info.width + 1)
+    for n in range(0, 2 * r_region + 1):
+        start = n * mapData.info.width + init_index
+        end = start + 2 * r_region
+        limit = ((start / mapData.info.width) + 2) * mapData.info.width
+        for i in range(start, end + 1):
+            if 0 <= i < limit and i < len(mapData.data):
+                if mapData.data[i] == -1 and norm(np.array(point) - point_of_index(mapData, i)) <= r:
+                    infoGain = infoGain + 1.0
+    return infoGain * (mapData.info.resolution ** 2)
