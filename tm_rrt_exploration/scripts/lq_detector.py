@@ -152,6 +152,7 @@ class Detector:
 
                     self.V.append(np.array([position[0], position[1]]))
                     self.line.points = []
+                    self.line.action = Marker.DELETEALL
                     self.shapes_pub.publish(self.line)
                     # rospy.sleep(0.5)
 
@@ -168,6 +169,7 @@ class Detector:
                 position.y = x_nearest[1]
                 position.z = 0.0
                 self.line.points.append(position)
+                self.line.action = Marker.ADD
                 self.shapes_pub.publish(self.line)
             # rospy.sleep(2)
             self.rate.sleep()
@@ -222,7 +224,7 @@ class Detector:
         self.points.ns = self.mode + "_RRT"
         self.points.id = 0
         self.points.type = self.points.POINTS
-        self.points.action = self.points.ADD
+        self.points.action = Marker.ADD
         self.points.pose.orientation.w = 1.0
         self.points.scale.x = 0.3
         self.points.scale.y = 0.3
@@ -237,7 +239,7 @@ class Detector:
         self.line.ns = self.mode + "_RRT"
         self.line.id = 1
         self.line.type = self.line.LINE_LIST
-        self.line.action = self.line.ADD
+        self.line.action = Marker.ADD
         self.line.pose.orientation.w = 1.0
         self.line.scale.x = 0.07
         self.line.scale.y = 0.07
