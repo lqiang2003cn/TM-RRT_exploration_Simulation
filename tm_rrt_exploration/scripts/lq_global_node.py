@@ -7,7 +7,7 @@ if __name__ == '__main__':
         np.random.seed(42)
         nn = 'global_rrt_detector'
         rospy.init_node(nn, anonymous=False)
-        gd = Detector(nn, 'global')
+        gd = Detector(nn, 'global', '/tb3_0')
         gd.init()
         gd.loop()
     except rospy.ROSInterruptException:

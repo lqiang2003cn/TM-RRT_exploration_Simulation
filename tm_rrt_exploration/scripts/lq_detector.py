@@ -12,7 +12,7 @@ import lq_utils as utils
 
 class Detector:
 
-    def __init__(self, node_name, mode):
+    def __init__(self, node_name, mode, robot_name):
         self.start_x = None
         self.start_y = None
         self.init_map_x = None
@@ -38,15 +38,15 @@ class Detector:
         self.tf_listener = tf.TransformListener()
         self.map_frame = None
         self.robot_frame = None
+        self.robot_name = robot_name
 
     def init(self):
-        robot_name = '/tb3_0'
         self.eta = rospy.get_param('~eta', 0.5)
         self.map_topic = rospy.get_param('~map_topic', "/map")
         self.map_frame = rospy.get_param('~map_frame', "map")
         self.rate_hz = rospy.get_param('~rate', 100)
-        self.odom_topic = rospy.get_param('~odom_topic', robot_name + '/odom')
-        self.robot_frame = rospy.get_param('~robot_frame', robot_name + '/base_footprint')
+        self.odom_topic = rospy.get_param('~odom_topic', self.robot_name + '/odom')
+        self.robot_frame = rospy.get_param('~robot_frame', self.robot_name + '/base_footprint')
 
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_callback, queue_size=100)
         rospy.Subscriber("/explore_start", Bool, self.start_signal_callback, queue_size=10)

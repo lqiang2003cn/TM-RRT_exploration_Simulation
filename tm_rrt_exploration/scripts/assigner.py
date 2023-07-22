@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 from tmrrt_exploration.msg import PointArray, invalidArray
 from visualization_msgs.msg import Marker
 
-from functions import robot, informationGain, discount2, calcDynamicTimeThreshold, calculateLocationDistance, \
+from functions import robot, information_gain, discount2, calcDynamicTimeThreshold, calculateLocationDistance, \
     relativePositionMetric, getHigestIndex
 
 # Subscribers' callbacks------------------------------
@@ -247,7 +247,7 @@ def node():
             infoGain = []
             for ip in range(0, len(centroids)):
                 infoGain.append(
-                    informationGain(mapData, [centroids[ip][0], centroids[ip][1]], info_radius) * info_multiplier)
+                    information_gain(mapData, [centroids[ip][0], centroids[ip][1]], info_radius) * info_multiplier)
             # -------------------------------------------------------------------------
             # get dicount and update informationGain
             for i in nb + na:
@@ -287,8 +287,8 @@ def node():
                             information_gain *= hysteresis_gain
 
                         if norm(robots_goals[ir] - centroids[ip]) <= hysteresis_radius:
-                            information_gain = informationGain(mapData, [centroids[ip][0], centroids[ip][1]],
-                                                               info_radius) * hysteresis_gain
+                            information_gain = information_gain(mapData, [centroids[ip][0], centroids[ip][1]],
+                                                                info_radius) * hysteresis_gain
                     else:
                         if norm(centroids[ip] - robots_position[ir]) <= hysteresis_radius:
                             information_gain *= hysteresis_gain

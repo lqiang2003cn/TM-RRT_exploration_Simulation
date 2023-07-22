@@ -218,7 +218,7 @@ def point_of_index(mapData, i):
 # ________________________________________________________________________________
 
 
-def informationGain(mapData, point, r):
+def information_gain(mapData, point, r):
     infoGain = 0.0
     index = index_of_point(mapData, point)
     r_region = int(r/mapData.info.resolution)

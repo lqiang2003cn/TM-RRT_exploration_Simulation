@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 from tmrrt_exploration.msg import PointArray, invalidArray
 from visualization_msgs.msg import Marker
 
-from functions import gridValue, informationGain, gridValueMergedMap, calculateLocationDistance
+from functions import gridValue, information_gain, gridValueMergedMap, calculateLocationDistance
 
 # Subscribers' callbacks------------------------------
 mapData = OccupancyGrid()
@@ -320,7 +320,7 @@ def node():
                     mapValue = gridValueMergedMap(mapData, centroids[z])
                     if mapValue > 90:  # if the map value is unknown or obstacle
                         cond3 = True
-                    infoGain = informationGain(mapData, centroids[z], info_radius * 0.5)
+                    infoGain = information_gain(mapData, centroids[z], info_radius * 0.5)
                     if debug1:
                         print("info gain and merged map value calculation took around %.3fs" % (
                                     time.time() - startTime2))
