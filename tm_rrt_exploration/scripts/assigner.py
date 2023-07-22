@@ -119,7 +119,7 @@ def node():
     for i in range(0, len(robot_namelist)):
         rospy.loginfo('setting initial position for robot: %s' % (robot_namelist[i]))
         position0, rot0 = robots[i].getPosition(quad=True)
-        robots[i].sendGoal(point=position0, quadData=rot0)
+        robots[i].send_goal(point=position0, quadData=rot0)
         robot_assigned_goal.append({'robot_id': i, 'goal': position0, 'startLoc': position0,
                                     'time_start': start_time, 'valid': True, 'time_thres': -1, 'lastgoal': position0})
 
@@ -177,7 +177,7 @@ def node():
 
             for i in range(0, len(robot_namelist)):
                 position1, rot1 = robots[i].getPosition(quad=True)
-                robots[i].sendGoal(point=position1, quadData=rot1)
+                robots[i].send_goal(point=position1, quadData=rot1)
                 # robots[i].sendGoalTransformed(robots[i].getPosition())
                 robot_assigned_goal.append({'robot_id': i, 'goal': position1, 'startLoc': position1,
                                             'time_start': start_time, 'valid': True, 'time_thres': -1,
@@ -431,7 +431,7 @@ def node():
                                     # checking the condition for the goal assignment
                                     if cond_history and cond_goal and cond_goalTaken and cond_busyNear:
                                         position3, rot3 = robots[xxx].getPosition(quad=True)
-                                        robots[xxx].sendGoal(point=centroid_record[xxx][winner_id], quadData=rot3)
+                                        robots[xxx].send_goal(point=centroid_record[xxx][winner_id], quadData=rot3)
                                         robots[xxx].setGoalHistory(centroid_record[xxx][winner_id])
                                         robot_assigned_goal[xxx]['lastgoal'] = robot_assigned_goal[xxx]['goal'].copy()
                                         robot_assigned_goal[xxx]['goal'] = centroid_record[xxx][winner_id]

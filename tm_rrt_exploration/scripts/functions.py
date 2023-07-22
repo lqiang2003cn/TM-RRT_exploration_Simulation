@@ -143,7 +143,7 @@ class robot:
         self.goal_history.append(array(point))
         self.assigned_point = array(point)
         
-    def sendGoal(self, point, quadData=None):
+    def send_goal(self, point, quadData=None):
         if quadData is None:
             self.goal.target_pose.pose.position.x = point[0]
             self.goal.target_pose.pose.position.y = point[1]
