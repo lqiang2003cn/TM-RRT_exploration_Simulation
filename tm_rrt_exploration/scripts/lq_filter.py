@@ -19,7 +19,7 @@ import lq_utils as utils
 
 class Filter:
 
-    def __init__(self, node_name, robot_name):
+    def __init__(self, robot_name):
         self.map_data = OccupancyGrid()
         self.frontiers_points = None
         self.global_map = None
@@ -47,7 +47,6 @@ class Filter:
         self.filtered_points_shape_pub = None
         self.filtered_points_pub = None
         self.frontiers_points = None
-        self.node_name = node_name
         self.frontiers_points = None
         self.filtered_points_shape = None
         self.global_frame = None
@@ -278,11 +277,10 @@ class Filter:
 if __name__ == '__main__':
     try:
         rn = 'tb3_0'
-        func_nn = 'filter'
-        nn = func_nn + '_' + rn
+        nn = 'filter'
         rospy.init_node(nn, anonymous=False)
 
-        frontier_filter = Filter(nn, rn)
+        frontier_filter = Filter(rn)
         frontier_filter.init()
         frontier_filter.loop()
     except rospy.ROSInterruptException:
