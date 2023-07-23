@@ -12,7 +12,7 @@ import lq_utils as utils
 
 class Detector:
 
-    def __init__(self, node_name, mode, robot_name):
+    def __init__(self, mode, robot_name):
         self.start_x = None
         self.start_y = None
         self.init_map_x = None
@@ -30,7 +30,6 @@ class Detector:
         self.rate_hz = 100
         self.detected_points_pub = None
         self.shapes_pub = None
-        self.node_name = node_name
         self.rate = None
         self.mode = mode
         self.odom_points = None
@@ -54,7 +53,7 @@ class Detector:
         rospy.Subscriber(self.odom_topic, Odometry, self.odom_callback)
 
         self.detected_points_pub = rospy.Publisher('/detected_points', PointStamped, queue_size=100)
-        self.shapes_pub = rospy.Publisher(self.node_name + '_shapes', Marker, queue_size=100)
+        self.shapes_pub = rospy.Publisher(self.mode + '_rrt_detector_shapes', Marker, queue_size=100)
 
         self.rate = rospy.Rate(self.rate_hz)
 

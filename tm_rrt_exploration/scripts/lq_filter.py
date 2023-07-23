@@ -24,7 +24,7 @@ class Filter:
         self.frontiers_points = None
         self.global_map = None
         self.local_map = None
-        self.invalid_frontier = []
+        self.invalid_frontiers = []
         self.start_signal = True
         self.reset_signal = False
         self.robot_name = robot_name
@@ -36,7 +36,7 @@ class Filter:
         self.local_map_topic = None
         self.bandwith_cluster = None
         self.robot_frame = None
-        self.inv_frontier_topic = None
+        self.invalid_frontiers_topic = None
         self.start_signal_topic = None
         self.reset_signal_topic = None
         self.rate = None
@@ -62,7 +62,7 @@ class Filter:
         self.local_map_topic = rospy.get_param('~local_map', '/map')
         self.bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
         self.robot_frame = rospy.get_param('~robot_frame', self.robot_name + '/base_footprint')
-        self.inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_frontier')
+        self.invalid_frontiers_topic = rospy.get_param('~invalid_frontiers', '/invalid_frontiers')
         self.start_signal_topic = rospy.get_param('~start_signal_topic', '/explore_start')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
@@ -71,7 +71,7 @@ class Filter:
         self.frontiers = []
 
         rospy.Subscriber(self.map_topic, OccupancyGrid, self.map_call_back)
-        rospy.Subscriber(self.inv_frontier_topic, invalidArray, self.invalid_call_back)
+        rospy.Subscriber(self.invalid_frontiers_topic, invalidArray, self.invalid_call_back)
         rospy.Subscriber(self.start_signal_topic, Bool, self.start_signal_call_back)
         rospy.Subscriber(self.reset_signal_topic, Bool, self.reset_signal_topic)
         rospy.Subscriber(self.robot_name + self.global_costmap_topic, OccupancyGrid, self.global_cost_map_call_back)
@@ -146,7 +146,7 @@ class Filter:
 
     def reset(self):
         self.frontiers_points = []
-        self.invalid_frontier = []
+        self.invalid_frontiers = []
 
     def do_filtering(self):
         temp_point = PointStamped()
@@ -178,8 +178,8 @@ class Filter:
             global_cnd = (utils.grid_value(self.global_map, trans_pts_np) > self.threshold)
 
             # invalid point check
-            for inv_frt in range(0, len(self.invalid_frontier)):
-                if norm(centroids[z], self.invalid_frontier[inv_frt]) < 0.1:
+            for inv_frt in range(0, len(self.invalid_frontiers)):
+                if norm(centroids[z], self.invalid_frontiers[inv_frt]) < 0.1:
                     invalid_cnd = True
 
             map_value = utils.grid_value_merged_map(self.map_data, centroids[z])
@@ -197,8 +197,8 @@ class Filter:
         filtered_points.points = []
         for i in range(0, len(centroids)):
             invalid_pts = False
-            for j in range(0, len(self.invalid_frontier)):
-                if self.invalid_frontier[j][0] == centroids[i][0] and self.invalid_frontier[j][1] == centroids[i][1]:
+            for j in range(0, len(self.invalid_frontiers)):
+                if self.invalid_frontiers[j][0] == centroids[i][0] and self.invalid_frontiers[j][1] == centroids[i][1]:
                     invalid_pts = True
             if not invalid_pts:
                 tp = Point()
@@ -257,9 +257,9 @@ class Filter:
         self.map_data = data
 
     def invalid_call_back(self, data):
-        self.invalid_frontier = []
+        self.invalid_frontiers = []
         for point in data.frontiers_points:
-            self.invalid_frontier.append(array([point.x, point.y]))
+            self.invalid_frontiers.append(array([point.x, point.y]))
 
     def local_map_call_back(self, data):
         self.local_map = data

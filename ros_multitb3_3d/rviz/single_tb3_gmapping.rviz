@@ -5,10 +5,8 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Status1
-        - /Grid1
         - /Odometry1/Shape1
-        - /pending_frontiers1
-        - /pending_frontiers1/Status1
+        - /global_RRT1
         - /Odometry2/Shape1
         - /Odometry2/Covariance1
         - /TF1
@@ -173,7 +171,7 @@ Visualization Manager:
       Marker Topic: /global_rrt_detector_shapes
       Name: global_RRT
       Namespaces:
-        global_RRT: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
