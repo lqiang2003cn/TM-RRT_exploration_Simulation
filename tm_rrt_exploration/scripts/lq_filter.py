@@ -272,16 +272,3 @@ class Filter:
 
     def reset_signal_call_back(self, data):
         self.reset_signal = data.data
-
-
-if __name__ == '__main__':
-    try:
-        rn = 'tb3_0'
-        nn = 'filter'
-        rospy.init_node(nn, anonymous=False)
-
-        frontier_filter = Filter(rn)
-        frontier_filter.init()
-        frontier_filter.loop()
-    except rospy.ROSInterruptException:
-        pass

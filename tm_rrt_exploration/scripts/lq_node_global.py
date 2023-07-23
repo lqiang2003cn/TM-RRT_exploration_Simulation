@@ -1,14 +1,15 @@
 import numpy as np
 import rospy
+
 from lq_detector import Detector
 
 if __name__ == '__main__':
     try:
         np.random.seed(42)
-        nn = 'local_rrt_detector'
+        nn = 'lq_global_rrt_detector'
         rospy.init_node(nn, anonymous=False)
-        ld = Detector(nn, 'local', 'tb3_0')
-        ld.init()
-        ld.loop()
+        gd = Detector(nn, 'global', '/tb3_0')
+        gd.init()
+        gd.loop()
     except rospy.ROSInterruptException:
         pass

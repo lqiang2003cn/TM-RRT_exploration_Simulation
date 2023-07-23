@@ -42,7 +42,7 @@ class Detector:
 
     def init(self):
         self.eta = rospy.get_param('~eta', 0.5)
-        self.map_topic = rospy.get_param('~map_topic', "/map")
+        self.map_topic = rospy.get_param('~map_topic', self.robot_name + "/map")
         self.map_frame = rospy.get_param('~map_frame', "map")
         self.rate_hz = rospy.get_param('~rate', 100)
         self.odom_topic = rospy.get_param('~odom_topic', self.robot_name + '/odom')

@@ -397,14 +397,3 @@ class Assigner:
             global_frame=self.global_frame,
             base_link=self.base_link
         )
-
-
-if __name__ == '__main__':
-    try:
-        rn = 'tb3_0'
-        rospy.init_node('assigner', anonymous=False)
-        assigner = Assigner(rn)
-        assigner.init()
-        assigner.loop()
-    except rospy.ROSInterruptException:
-        pass
