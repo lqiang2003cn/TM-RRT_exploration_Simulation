@@ -313,7 +313,7 @@ class Assigner:
                     self.robot.cancel_goal()
                     self.robot_goal_cancel = True
 
-            rospy.sleep(0.1)
+            self.rate.sleep()
             self.next_assign_time = rospy.get_rostime().secs + self.delay_after_assignment
 
         # -------------------------------------------------------------------------

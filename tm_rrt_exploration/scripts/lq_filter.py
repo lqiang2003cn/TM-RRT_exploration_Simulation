@@ -110,6 +110,7 @@ class Filter:
 
         while len(self.frontiers) < 1:
             pass
+        rospy.loginfo("frontiers are received")
 
     def init_markers(self):
         self.frontiers_points = Marker()
@@ -157,13 +158,16 @@ class Filter:
 
         centroids = []
         frontiers_snapshot = copy(self.frontiers)
-        self.frontiers = []
+
         if len(frontiers_snapshot) > 1:
             ms = MeanShift(bandwidth=self.bandwith_cluster)
             ms.fit(frontiers_snapshot)
             centroids = ms.cluster_centers_  # centroids array is the centers of each cluster
         elif len(frontiers_snapshot) == 1:
             centroids = frontiers_snapshot
+
+        # make frontiers smaller but not empty
+        self.frontiers = copy(centroids)
 
         z = 0
         while z < len(centroids):
@@ -258,7 +262,7 @@ class Filter:
 
     def invalid_call_back(self, data):
         self.invalid_frontiers = []
-        for point in data.frontiers_points:
+        for point in data.points:
             self.invalid_frontiers.append(array([point.x, point.y]))
 
     def local_map_call_back(self, data):

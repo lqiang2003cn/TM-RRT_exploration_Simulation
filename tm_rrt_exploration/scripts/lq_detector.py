@@ -81,8 +81,7 @@ class Detector:
 
                     if not self.first_run:
                         self.detect()
-                else:
-                    self.rate.sleep()
+            self.rate.sleep()
 
     def handle_first_run(self):
         self.init_visual_info()
@@ -170,7 +169,7 @@ class Detector:
                 self.line.points.append(position)
                 self.line.action = Marker.ADD
                 self.shapes_pub.publish(self.line)
-            # rospy.sleep(2)
+            # rospy.sleep(0.1)
             self.rate.sleep()
 
     def map_callback(self, data):
