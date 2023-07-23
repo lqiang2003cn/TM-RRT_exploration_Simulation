@@ -15,7 +15,7 @@ from std_msgs.msg import Bool
 from tmrrt_exploration.msg import PointArray, invalidArray
 from visualization_msgs.msg import Marker
 
-from functions import robot, information_gain, discount2, calcDynamicTimeThreshold, calculateLocationDistance, \
+from functions import robot, informationGain, discount2, calcDynamicTimeThreshold, calculateLocationDistance, \
     relativePositionMetric, getHigestIndex
 
 # Subscribers' callbacks------------------------------
@@ -23,7 +23,7 @@ mapData = OccupancyGrid()
 frontiers = []
 invalidFrontier = []
 globalmaps = []
-startStopSignal = False
+startStopSignal = True
 resetSignal = False
 
 
@@ -247,7 +247,7 @@ def node():
             infoGain = []
             for ip in range(0, len(centroids)):
                 infoGain.append(
-                    information_gain(mapData, [centroids[ip][0], centroids[ip][1]], info_radius) * info_multiplier)
+                    informationGain(mapData, [centroids[ip][0], centroids[ip][1]], info_radius) * info_multiplier)
             # -------------------------------------------------------------------------
             # get dicount and update informationGain
             for i in nb + na:
@@ -287,7 +287,7 @@ def node():
                             information_gain *= hysteresis_gain
 
                         if norm(robots_goals[ir] - centroids[ip]) <= hysteresis_radius:
-                            information_gain = information_gain(mapData, [centroids[ip][0], centroids[ip][1]],
+                            information_gain = informationGain(mapData, [centroids[ip][0], centroids[ip][1]],
                                                                 info_radius) * hysteresis_gain
                     else:
                         if norm(centroids[ip] - robots_position[ir]) <= hysteresis_radius:
@@ -379,6 +379,7 @@ def node():
                                     cond_history = True
                                     cond_goalTaken = True
                                     cond_busyNear = True
+
                                     for xi in range(0, len(invalidFrontier)):
                                         if calculateLocationDistance(centroid_record[xxx][winner_id],
                                                                      invalidFrontier[xi]) < 0.1:
@@ -388,6 +389,7 @@ def node():
                                                     calculateLocationDistance(centroid_record[xxx][winner_id],
                                                                               invalidFrontier[xi])))
                                             break
+
                                     # check if history appear in other robot history
                                     history = []
                                     for xj in range(0, len(robot_namelist)):

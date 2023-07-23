@@ -62,7 +62,7 @@ class Filter:
         self.local_map_topic = rospy.get_param('~local_map', '/map')
         self.bandwith_cluster = rospy.get_param('~bandwith_cluster', 0.3)
         self.robot_frame = rospy.get_param('~robot_frame', self.robot_name + '/base_footprint')
-        self.inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_points')
+        self.inv_frontier_topic = rospy.get_param('~invalid_frontier', '/invalid_frontier')
         self.start_signal_topic = rospy.get_param('~start_signal_topic', '/explore_start')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')
         self.reset_signal_topic = rospy.get_param('~reset_signal_topic', '/explore_reset')

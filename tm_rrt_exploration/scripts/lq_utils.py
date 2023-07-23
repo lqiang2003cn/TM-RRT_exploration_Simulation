@@ -191,6 +191,28 @@ def information_gain(mapData, point, r):
     return infoGain * (mapData.info.resolution ** 2)
 
 
+def get_highest_index(revenueList, attempt):
+    # get the maximum index number
+    if len(revenueList) > 0:
+        tempList = sorted(revenueList, reverse=True)
+        maxValue = tempList[attempt]
+        index = revenueList.index(maxValue)
+        return index
+    else:
+        return -1
+
+
+def calc_dyn_time_thre(curr_pos, goal_pos, time_per_meter):
+    # this function use to dynamic determine the mission time threshold for the robot
+    dist1 = np.sqrt(np.power(curr_pos[0] - goal_pos[0], 2) + np.power(curr_pos[1] - goal_pos[1], 2))
+    if dist1 < 1.0:
+        return time_per_meter
+    elif 1.0 <= dist1 <= 10.0:
+        return int(time_per_meter * np.abs(dist1))
+    else:
+        return int(time_per_meter * 10.0)
+
+
 class Robot:
     def __init__(self, name, move_base_service, in_service, global_frame, base_link):
         rospy.loginfo('setting up robot init for robot - ' + name)
